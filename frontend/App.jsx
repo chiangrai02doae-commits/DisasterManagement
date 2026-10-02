@@ -5,10 +5,12 @@ export default function App() {
   const [disasters, setDisasters] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // State สำหรับเก็บข้อมูลที่อยู่ประเทศไทย
   const [provinces, setProvinces] = useState([]);
   const [districts, setDistricts] = useState([]);
   const [subdistricts, setSubdistricts] = useState([]);
+
+  const [rawDistricts, setRawDistricts] = useState([]);
+  const [rawSubdistricts, setRawSubdistricts] = useState([]);
 
   const [formData, setFormData] = useState({
     disasterType: 'อุทกภัย',
@@ -23,61 +25,57 @@ export default function App() {
     startDate: new Date().toISOString().split('T')[0],
   });
 
-  // โหลดรายชื่อจังหวัดทั้งหมดเมื่อเปิดหน้าเว็บ
-    // โหลดรายชื่อจังหวัดแบบรวดเร็ว
   useEffect(() => {
+    // โหลดข้อมูลจังหวัด อำเภอ ตำบล เตรียมไว้ล่วงหน้า
     fetch('https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/province.json')
       .then(res => res.json())
-      .then(data => {
-        // รองรับทั้งแบบ object มี .name.th หรือแบบ string ตรงๆ
-        setProvinces(data);
-      })
+      .then(data => setProvinces(data))
       .catch(err => console.error('Error loading provinces:', err));
+
+    fetch('https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/district.json')
+      .then(res => res.json())
+      .then(data => setRawDistricts(data))
+      .catch(err => console.error('Error loading districts:', err));
+
+    fetch('https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/sub_district.json')
+      .then(res => res.json())
+      .then(data => setRawSubdistricts(data))
+      .catch(err => console.error('Error loading subdistricts:', err));
 
     fetchDisasters();
   }, []);
 
-  // เมื่อเลือกจังหวัด ให้เปลี่ยนอำเภอตาม
   const handleProvinceChange = (e) => {
-    const selectedProvinceName = e.target.value;
+    const selectedProvName = e.target.value;
     setFormData({
       ...formData,
-      province: selectedProvinceName,
+      province: selectedProvName,
       district: '',
       subdistrict: ''
     });
     setSubdistricts([]);
 
-    const foundProv = provinces.find(p => p.name.th === selectedProvinceName);
+    const foundProv = provinces.find(p => p.name.th === selectedProvName);
     if (foundProv) {
-      fetch(`https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/district.json`)
-        .then(res => res.json())
-        .then(data => {
-          const filteredDistricts = data.filter(d => d.province_id === foundProv.id);
-          setDistricts(filteredDistricts);
-        });
+      const filtered = rawDistricts.filter(d => d.province_id === foundProv.id);
+      setDistricts(filtered);
     } else {
       setDistricts([]);
     }
   };
 
-  // เมื่อเลือกอำเภอ ให้เปลี่ยนตำบลตาม
   const handleDistrictChange = (e) => {
-    const selectedDistrictName = e.target.value;
+    const selectedDistName = e.target.value;
     setFormData({
       ...formData,
-      district: selectedDistrictName,
+      district: selectedDistName,
       subdistrict: ''
     });
 
-    const foundDist = districts.find(d => d.name.th === selectedDistrictName);
+    const foundDist = rawDistricts.find(d => d.name.th === selectedDistName);
     if (foundDist) {
-      fetch(`https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/sub_district.json`)
-        .then(res => res.json())
-        .then(data => {
-          const filteredSub = data.filter(s => s.district_id === foundDist.id);
-          setSubdistricts(filteredSub);
-        });
+      const filtered = rawSubdistricts.filter(s => s.district_id === foundDist.id);
+      setSubdistricts(filtered);
     } else {
       setSubdistricts([]);
     }
@@ -124,10 +122,10 @@ export default function App() {
           province: '',
           district: '',
           subdistrict: '',
-          households: '',
-          damagedArea: '',
-          budgetAmount: '',
-          budgetType: '',
+          households: '15',
+          damagedArea: '50 ไร่',
+          budgetAmount: '100,000 บาท',
+          budgetType: 'งบกลาง',
           status: 'รอดำเนินการ',
           startDate: new Date().toISOString().split('T')[0],
         });
@@ -144,15 +142,13 @@ export default function App() {
 
   return (
     <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto' }}>
-      <h2>ระบบติดตามการช่วยเหลือผู้ประสบภัยพิบัติ (Dropdown พื้นที่ถูกต้อง)</h2>
+      <h2>ระบบติดตามการช่วยเหลือผู้ประสบภัยพิบัติ</h2>
 
-      {/* ฟอร์มบันทึก */}
       <fieldset style={{ border: '1px solid #ccc', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
         <legend><strong>บันทึกเคสภัยพิบัติใหม่</strong></legend>
         <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
           <input type="text" placeholder="ประเภทภัย" value={formData.disasterType} onChange={e => setFormData({...formData, disasterType: e.target.value})} required />
           
-          {/* Dropdown จังหวัด */}
           <select value={formData.province} onChange={handleProvinceChange} required style={{ padding: '6px' }}>
             <option value="">-- เลือกจังหวัด --</option>
             {provinces.map(p => (
@@ -160,7 +156,6 @@ export default function App() {
             ))}
           </select>
 
-          {/* Dropdown อำเภอ */}
           <select value={formData.district} onChange={handleDistrictChange} required disabled={!formData.province} style={{ padding: '6px' }}>
             <option value="">-- เลือกอำเภอ/เขต --</option>
             {districts.map(d => (
@@ -168,7 +163,6 @@ export default function App() {
             ))}
           </select>
 
-          {/* Dropdown ตำบล */}
           <select value={formData.subdistrict} onChange={e => setFormData({...formData, subdistrict: e.target.value})} required disabled={!formData.district} style={{ padding: '6px' }}>
             <option value="">-- เลือกตำบล/แขวง --</option>
             {subdistricts.map(s => (
@@ -188,7 +182,6 @@ export default function App() {
         </form>
       </fieldset>
 
-      {/* ตารางแสดงผล */}
       <h3>รายการข้อมูลการช่วยเหลือ</h3>
       <table border="1" cellPadding="8" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
         <thead>
